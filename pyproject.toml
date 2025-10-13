@@ -8,11 +8,6 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "setuptools",
     "loguru",
-    "PyYAML",
-    "psutil",
-    "numpy",
-    "opencv-python-headless",
-    "pydantic==2.10.6",
 	"rknn-toolkit2",
 ]
 

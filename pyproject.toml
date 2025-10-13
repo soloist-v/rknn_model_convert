@@ -1,0 +1,27 @@
+[project]
+name = "rknn_model_convert"
+description = "rknn 模型转换"
+authors = []
+version = "8.0.5"
+keywords = ["rknn", "convert"]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "setuptools",
+    "loguru",
+    "PyYAML",
+    "psutil",
+    "numpy",
+    "opencv-python-headless",
+    "pydantic==2.10.6",
+	"rknn-toolkit2",
+]
+
+[tool.uv.sources]
+rknn-toolkit2 = [
+    { path = "../rknn-toolkit2-master/rknn-toolkit2/packages/arm64/rknn_toolkit2-2.3.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+    { path = "../rknn-toolkit2-master/rknn-toolkit2/packages/x86_64/rknn_toolkit2-2.3.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { path = "../rknn-toolkit2-master/rknn-toolkit2/packages/x86_64/rknn_toolkit2-2.3.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", marker = "sys_platform == 'darwin' or platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'linux' or sys_platform != 'darwin' and sys_platform != 'linux'" },
+]
+
+[tool.uv]
+index-url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"

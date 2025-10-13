@@ -1,5 +1,6 @@
 import argparse
 import os
+import yaml
 from pathlib import Path
 from loguru import logger
 from rknn.api import RKNN
@@ -24,14 +25,29 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Examples:
+  # Basic conversion
   python convert.py model.onnx rk3588
+  
+  # Specify output and data type
   python convert.py model.onnx rk3588 --dtype i8 --output model.rknn
-  python convert.py model.onnx rk3588 --dtype fp --no-quant --dataset datasets/imagenet/ILSVRC2012_img_val_samples/dataset_20.txt
+  
+  # Floating point model (no quantization)
+  python convert.py model.onnx rk3588 --dtype fp --no-quant
+  
+  # Custom dataset
+  python convert.py model.onnx rk3588 --dataset datasets/imagenet/ILSVRC2012_img_val_samples/dataset_20.txt
+  
+  # Custom hybrid quantization (for precision-sensitive models)
+  python convert.py yolov8_pose.onnx rk3588 --custom-hybrid custom_hybrid.yaml
+  
+  # Auto hybrid quantization (for older platforms)
+  python convert.py model.onnx rv1109 --auto-hybrid-quant
 
 Notes:
   - For rk3562, rk3566, rk3568, rk3576, rk3588, rv1126b: use 'i8' or 'fp'
   - For rv1109, rv1126, rk1808: use 'u8' or 'fp'
   - Quantization is enabled by default when dtype is 'i8' or 'u8'
+  - Hybrid quantization keeps critical layers in float precision for better accuracy
         '''
     )
     
@@ -102,6 +118,20 @@ Notes:
         help='Enable verbose output from RKNN'
     )
     
+    parser.add_argument(
+        '--custom-hybrid',
+        type=str,
+        default=None,
+        metavar='YAML_FILE',
+        help='Path to YAML file containing custom hybrid quantization configuration'
+    )
+    
+    parser.add_argument(
+        '--auto-hybrid-quant',
+        action='store_true',
+        help='Enable automatic hybrid quantization (for older platforms: rv1109, rv1126, rk1808)'
+    )
+    
     args = parser.parse_args()
     
     # Validate dtype based on platform
@@ -116,6 +146,35 @@ Notes:
         args.do_quant = False
     else:
         args.do_quant = args.dtype in ['i8', 'u8']
+    
+    # Load custom hybrid quantization config if provided
+    args.custom_hybrid_config = None
+    if args.custom_hybrid:
+        custom_hybrid_path = Path(args.custom_hybrid)
+        if not custom_hybrid_path.exists():
+            parser.error(f"Custom hybrid config file not found: {args.custom_hybrid}")
+        
+        try:
+            with open(custom_hybrid_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+                if 'custom_hybrid' not in config:
+                    parser.error(f"'custom_hybrid' key not found in {args.custom_hybrid}")
+                args.custom_hybrid_config = config['custom_hybrid']
+                
+                # Validate custom_hybrid format
+                if not isinstance(args.custom_hybrid_config, list):
+                    parser.error(f"'custom_hybrid' must be a list in {args.custom_hybrid}")
+        except yaml.YAMLError as e:
+            parser.error(f"Failed to parse YAML file {args.custom_hybrid}: {e}")
+        except Exception as e:
+            parser.error(f"Failed to read custom hybrid config: {e}")
+    
+    # Validate hybrid quantization options
+    if args.custom_hybrid and not args.do_quant:
+        parser.error("Custom hybrid quantization requires quantization to be enabled (remove --no-quant)")
+    
+    if args.auto_hybrid_quant and not args.do_quant:
+        parser.error("Auto hybrid quantization requires quantization to be enabled (remove --no-quant)")
     
     return args
 
@@ -178,11 +237,66 @@ def convert_onnx_to_rknn(args):
     logger.info('Building RKNN model')
     if args.do_quant:
         logger.info(f'Using dataset: {args.dataset}')
-    ret = rknn.build(do_quantization=args.do_quant, dataset=args.dataset if args.do_quant else None)
-    if ret != 0:
-        logger.error('Failed to build model!')
-        exit(ret)
-    logger.success('Model built successfully')
+    
+    # Choose build method based on configuration
+    if args.custom_hybrid_config:
+        # Use custom hybrid quantization (two-step process)
+        logger.info('Using custom hybrid quantization')
+        logger.info(f'Custom hybrid config: {args.custom_hybrid_config}')
+        
+        # Step 1: Generate intermediate files
+        logger.info('Hybrid quantization step 1: Analyzing model...')
+        ret = rknn.hybrid_quantization_step1(
+            dataset=args.dataset,
+            proposal=False,
+            custom_hybrid=args.custom_hybrid_config
+        )
+        if ret != 0:
+            logger.error('Hybrid quantization step 1 failed!')
+            exit(ret)
+        logger.success('Hybrid quantization step 1 completed')
+        
+        # Step 2: Build with generated config
+        model_name = Path(args.model).stem
+        model_input = f"{model_name}.model"
+        data_input = f"{model_name}.data"
+        quantization_cfg = f"{model_name}.quantization.cfg"
+        
+        logger.info('Hybrid quantization step 2: Building model...')
+        logger.info(f'Using generated files: {model_input}, {data_input}, {quantization_cfg}')
+        ret = rknn.hybrid_quantization_step2(
+            model_input=model_input,
+            data_input=data_input,
+            model_quantization_cfg=quantization_cfg
+        )
+        if ret != 0:
+            logger.error('Hybrid quantization step 2 failed!')
+            exit(ret)
+        logger.success('Hybrid quantization step 2 completed')
+        
+    elif args.auto_hybrid_quant:
+        # Use automatic hybrid quantization
+        logger.info('Using automatic hybrid quantization')
+        ret = rknn.build(
+            do_quantization=args.do_quant,
+            dataset=args.dataset if args.do_quant else None,
+            auto_hybrid_quant=True
+        )
+        if ret != 0:
+            logger.error('Failed to build model!')
+            exit(ret)
+        logger.success('Model built successfully with auto hybrid quantization')
+        
+    else:
+        # Use standard build
+        ret = rknn.build(
+            do_quantization=args.do_quant,
+            dataset=args.dataset if args.do_quant else None
+        )
+        if ret != 0:
+            logger.error('Failed to build model!')
+            exit(ret)
+        logger.success('Model built successfully')
 
     # Export rknn model
     logger.info(f'Exporting RKNN model to: {args.output}')

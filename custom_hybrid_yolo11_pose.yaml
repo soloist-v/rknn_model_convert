@@ -1,0 +1,20 @@
+# Custom Hybrid Quantization Configuration Example
+# 用于 YOLOv8 Pose 模型的混合量化配置示例
+
+# custom_hybrid 定义了需要保持浮点精度的层对
+# 格式：[[起始层, 结束层], [起始层, 结束层], ...]
+# 这些层之间的部分将使用浮点运算，其他部分使用量化
+
+custom_hybrid:
+  # YOLOv8 Pose 模型的关键层配置
+  # 这些配置用于姿态估计的关键点检测头
+  - ['/model.22/cv4.0/cv4.0.0/act/Mul_output_0', '/model.22/Concat_6_output_0']
+  - ['/model.22/cv4.1/cv4.1.0/act/Mul_output_0', '/model.22/Concat_6_output_0']
+  - ['/model.22/cv4.2/cv4.2.0/act/Mul_output_0', '/model.22/Concat_6_output_0']
+
+# 说明：
+# 1. 每对层名需要根据你的具体模型结构来确定
+# 2. 可以使用 Netron 或其他工具查看 ONNX 模型的层名称
+# 3. 通常在精度敏感的输出层附近使用混合量化
+# 4. 不同的模型需要不同的配置
+

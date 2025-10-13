@@ -71,6 +71,8 @@ python convert.py -h
 | `--mean-values` | RGB 均值（用于归一化） | `0 0 0` |
 | `--std-values` | RGB 标准差（用于归一化） | `255 255 255` |
 | `--verbose` | 启用详细输出 | - |
+| `--custom-hybrid` | 自定义混合量化配置文件路径（YAML 格式） | - |
+| `--auto-hybrid-quant` | 启用自动混合量化（适用于老平台） | - |
 
 ### 平台与数据类型兼容性
 
@@ -138,6 +140,73 @@ python convert.py model.onnx rk3588 --verbose
 python convert.py model.onnx rv1109 --dtype u8
 ```
 
+### 9. 使用自定义混合量化（适用于精度敏感模型）
+
+```bash
+# 创建或编辑 custom_hybrid.yaml 配置文件
+python convert.py models/yolov8_pose.onnx rk3588 --custom-hybrid custom_hybrid_example.yaml
+```
+
+### 10. 使用自动混合量化（适用于老平台）
+
+```bash
+python convert.py model.onnx rv1109 --auto-hybrid-quant
+```
+
+## 🎨 混合量化（Hybrid Quantization）
+
+混合量化是一种高级量化策略，可以让模型的某些关键层保持浮点精度，而其他层使用 INT8/UINT8 量化。这对于精度敏感的模型（如姿态估计、关键点检测等）特别有用。
+
+### 什么时候使用混合量化？
+
+- ✅ 模型在全量化后精度损失严重
+- ✅ 检测/分类/姿态估计的关键输出层需要更高精度
+- ✅ 某些层对量化误差特别敏感
+
+### 自定义混合量化
+
+#### 1. 创建配置文件
+
+创建一个 YAML 文件（如 `custom_hybrid.yaml`）：
+
+```yaml
+custom_hybrid:
+  # 定义需要保持浮点精度的层对
+  # 格式：[[起始层, 结束层], [起始层, 结束层], ...]
+  - ['/model.22/cv4.0/cv4.0.0/act/Mul_output_0', '/model.22/Concat_6_output_0']
+  - ['/model.22/cv4.1/cv4.1.0/act/Mul_output_0', '/model.22/Concat_6_output_0']
+  - ['/model.22/cv4.2/cv4.2.0/act/Mul_output_0', '/model.22/Concat_6_output_0']
+```
+
+#### 2. 查找层名称
+
+使用 [Netron](https://netron.app/) 打开你的 ONNX 模型，找到需要保持浮点精度的层名称。
+
+#### 3. 运行转换
+
+```bash
+python convert.py model.onnx rk3588 --custom-hybrid custom_hybrid.yaml -o outputs/
+```
+
+#### 4. 生成的中间文件
+
+混合量化会生成以下中间文件（用于两步量化）：
+- `model_name.model` - 第一步生成的模型文件
+- `model_name.data` - 第一步生成的配置文件
+- `model_name.quantization.cfg` - 第一步生成的量化配置文件
+
+这些文件会自动用于第二步的量化过程。
+
+### 自动混合量化
+
+对于某些老平台（rv1109, rv1126, rk1808），可以使用自动混合量化：
+
+```bash
+python convert.py model.onnx rv1109 --auto-hybrid-quant
+```
+
+这会让 RKNN 工具链自动分析并选择合适的层进行混合量化。
+
 ## 📂 目录结构
 
 ```
@@ -201,6 +270,11 @@ rknn_model_convert/
 2. **归一化参数**：确保归一化参数与训练时保持一致
 3. **平台选择**：选择正确的目标平台，不同平台的 NPU 架构可能不同
 4. **内存占用**：转换大模型时可能需要较大内存
+5. **混合量化**：
+   - 使用混合量化时，需要先分析模型找到精度敏感层
+   - 混合量化会生成中间文件（.model, .data, .quantization.cfg），这些文件可以删除
+   - 过多的浮点层会降低 NPU 加速效果，建议只在必要时使用
+6. **YAML 配置**：custom_hybrid 配置文件需要使用 UTF-8 编码
 
 ## 📄 许可证
 

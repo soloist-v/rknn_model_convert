@@ -31,10 +31,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
-### 使用 pip
+### 使用 uv
 
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 ## 📖 使用方法
@@ -42,13 +42,13 @@ pip install -r requirements.txt
 ### 基本用法
 
 ```bash
-python convert.py <model_path> <platform> [options]
+uv run convert.py <model_path> <platform> [options]
 ```
 
 ### 查看帮助
 
 ```bash
-python convert.py -h
+uv run convert.py -h
 ```
 
 ## 📝 参数说明
@@ -86,7 +86,7 @@ python convert.py -h
 ### 1. 基本转换（使用默认设置）
 
 ```bash
-python convert.py models/yolo11n.onnx rk3588
+uv run convert.py models/yolo11n.onnx rk3588
 ```
 
 输出：`yolo11.rknn`（INT8 量化）
@@ -94,7 +94,7 @@ python convert.py models/yolo11n.onnx rk3588
 ### 2. 指定输出目录（自动创建并使用输入模型名）
 
 ```bash
-python convert.py models/yolo11n.onnx rk3588 -o outputs
+uv run convert.py models/yolo11n.onnx rk3588 -o outputs
 ```
 
 输出：`outputs/yolo11n.rknn`（目录不存在会自动创建）
@@ -102,7 +102,7 @@ python convert.py models/yolo11n.onnx rk3588 -o outputs
 ### 3. 指定完整输出路径
 
 ```bash
-python convert.py models/yolo11n.onnx rk3588 -o outputs/my_model.rknn
+uv run convert.py models/yolo11n.onnx rk3588 -o outputs/my_model.rknn
 ```
 
 输出：`outputs/my_model.rknn`
@@ -110,20 +110,20 @@ python convert.py models/yolo11n.onnx rk3588 -o outputs/my_model.rknn
 ### 4. 转换为浮点模型（不量化）
 
 ```bash
-python convert.py model.onnx rk3588 --dtype fp --no-quant
+uv run convert.py model.onnx rk3588 --dtype fp --no-quant
 ```
 
 ### 5. 使用自定义量化数据集
 
 ```bash
-python convert.py model.onnx rk3588 \
+uv run convert.py model.onnx rk3588 \
   --dataset datasets/imagenet/ILSVRC2012_img_val_samples/dataset_20.txt
 ```
 
 ### 6. 自定义归一化参数
 
 ```bash
-python convert.py model.onnx rk3588 \
+uv run convert.py model.onnx rk3588 \
   --mean-values 127.5 127.5 127.5 \
   --std-values 127.5 127.5 127.5
 ```
@@ -131,26 +131,26 @@ python convert.py model.onnx rk3588 \
 ### 7. 启用详细输出
 
 ```bash
-python convert.py model.onnx rk3588 --verbose
+uv run convert.py model.onnx rk3588 --verbose
 ```
 
 ### 8. 转换为 UINT8 格式（适用于 RV1109）
 
 ```bash
-python convert.py model.onnx rv1109 --dtype u8
+uv run convert.py model.onnx rv1109 --dtype u8
 ```
 
 ### 9. 使用自定义混合量化（适用于精度敏感模型）
 
 ```bash
 # 创建或编辑 custom_hybrid.yaml 配置文件
-python convert.py models/yolov8_pose.onnx rk3588 --custom-hybrid custom_hybrid_example.yaml
+uv run convert.py models/yolov8_pose.onnx rk3588 --custom-hybrid custom_hybrid_example.yaml
 ```
 
 ### 10. 使用自动混合量化（适用于老平台）
 
 ```bash
-python convert.py model.onnx rv1109 --auto-hybrid-quant
+uv run convert.py model.onnx rv1109 --auto-hybrid-quant
 ```
 
 ## 🎨 混合量化（Hybrid Quantization）
@@ -185,7 +185,7 @@ custom_hybrid:
 #### 3. 运行转换
 
 ```bash
-python convert.py model.onnx rk3588 --custom-hybrid custom_hybrid.yaml -o outputs/
+uv run convert.py model.onnx rk3588 --custom-hybrid custom_hybrid.yaml -o outputs/
 ```
 
 #### 4. 生成的中间文件
@@ -202,7 +202,7 @@ python convert.py model.onnx rk3588 --custom-hybrid custom_hybrid.yaml -o output
 对于某些老平台（rv1109, rv1126, rk1808），可以使用自动混合量化：
 
 ```bash
-python convert.py model.onnx rv1109 --auto-hybrid-quant
+uv run convert.py model.onnx rv1109 --auto-hybrid-quant
 ```
 
 这会让 RKNN 工具链自动分析并选择合适的层进行混合量化。

@@ -7,7 +7,6 @@ from rknn.api import RKNN
 
 # Default values
 DEFAULT_DATASET_PATH = 'datasets/COCO/coco_subset_20.txt'
-DEFAULT_RKNN_PATH = 'yolo11.rknn'
 DEFAULT_MEAN_VALUES = [0, 0, 0]
 DEFAULT_STD_VALUES = [255, 255, 255]
 
@@ -77,8 +76,8 @@ Notes:
     parser.add_argument(
         '-o', '--output',
         type=str,
-        default=DEFAULT_RKNN_PATH,
-        help=f'Output RKNN model path (default: {DEFAULT_RKNN_PATH})'
+        default="",
+        help=f'Output RKNN model path (default: "")'
     )
     
     parser.add_argument(
@@ -182,8 +181,9 @@ Notes:
 def convert_onnx_to_rknn(args):
     """Convert ONNX model to RKNN format with given arguments."""
     # Process output path - if no suffix, treat as directory
+    if not args.output:
+        args.output = args.model.replace('.onnx', '.rknn')
     output_path = Path(args.output)
-    
     if output_path.suffix == '' or output_path.is_dir():
         # No extension or is existing directory - treat as directory
         # Create directory if it doesn't exist

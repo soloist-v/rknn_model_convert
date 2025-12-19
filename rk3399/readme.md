@@ -1,0 +1,2 @@
+## 需要注意的是rk3399rknn api读取到的模型输入和输出的shape是reversed，但是output推理的时候却可以按照正序读取，这一点需要注意
+## 实际就是你用rknn api读取到的模型io shape必须reverse，但是推理的时候却可以和rk3588一致
